@@ -344,10 +344,16 @@ int main(int argc, char *argv[])
             return -1;
         }
         while (header.fmt_chunk_size>16) {
+            int ch;
             addr_wav_header+=2;
             header.fmt_chunk_size-=2;
-            fgetc(f);fgetc(f);
+            ch=fgetc(f); if (ch!=EOF) ch=fgetc(f);
             ad++;
+            if (ch==EOF) {
+                fclose(f);
+                fprintf(stderr,"\r\nerror: file %s format error, incomplete chunk\n", argv[1]);
+                return -1;
+            }
         }
         rd=fread(&header.data_header[0],8,1,f);
         if (rd<1) {
@@ -374,20 +380,23 @@ int main(int argc, char *argv[])
                 return -1;
         }
 
-        fw=fopen(argv[2],"r");
-        if (fw) {
-            char s[100];
-            printf("File %s already exists\n",argv[2]);
-            printf("Do you wish to overwrite? (yes or no): " );
-            scanf("%s",s);
-            if(strcmp(s, "yes")) {
-                printf("Canceled!\n");
-                return -1;
+        if (strcmp("-",argv[2])==0) {
+            fw=stdout;
+        } else {
+            fw=fopen(argv[2],"r");
+            if (fw) {
+                char s[100];
+                printf("File %s already exists\n",argv[2]);
+                printf("Do you wish to overwrite? (yes or no): " );
+                scanf("%s",s);
+                if(strcmp(s, "yes")) {
+                    printf("Canceled!\n");
+                    return -1;
+                }
+                fclose(fw);
             }
-            fclose(fw);
+            fw=fopen(argv[2],"w");
         }
-
-        fw=fopen(argv[2],"w");
         if (!fw) {
             fprintf(stderr,"error: output file %s can't open\n", argv[2]);
             return -1;
@@ -421,7 +430,7 @@ znova:
         ad+=T0;//((int)(1.80*48000));
         a_fseek(f,ad*2,SEEK_SET);
 
-        fprintf(stderr,"done.\n");
+        fprintf(stderr,"done.\n");fflush(stderr);
 
         fprintf(stderr,"#searching patterns ... ");
         for (i=0;i<256;i++) {
@@ -465,7 +474,7 @@ znova:
                 for (j=0;j<1024;j++) inreal[j]=(double)shortbuf[j];
             } while (!istone_and_not(3000,1000));
         }
-        fprintf(stderr,"done.\n");
+        fprintf(stderr,"done.\n");fflush(stderr);
 
         // ted nactem referenci
 
@@ -509,9 +518,9 @@ znova:
             fprintf(stderr,"\r\nerror: too noisy !!! (frequency %dHz)\r\n",j*48000/WINDOW);
             return -1;
         }
-        fprintf(stderr,"done.\n");
+        fprintf(stderr,"done.\n");fflush(stderr);
 
-        fprintf(stderr,"#computing patterns ...\n");
+        fprintf(stderr,"#computing patterns ...\n");fflush(stderr);
         for (i=0;i<256;i++) {
             Denoise2(outreal1,outref,xref,WINDOW);
             Denoise2(outreal2,outref,xref,WINDOW);
@@ -519,9 +528,9 @@ znova:
             Filtr(outreal[0][i],x1,WINDOW);
             Filtr(outreal[1][i],x2,WINDOW);
             j=NajdiBod(x1,x2,WINDOW);
-            fprintf(fw,"%d %d\n",i*8,j);
+            fprintf(fw,"%d %d\n",i*8,j);fflush(fw);
         }
-        fprintf(stderr,"#done.\n");
+        fprintf(stderr,"#done.\n");fflush(stderr);
         fclose(fw);
     }
     return 0;
